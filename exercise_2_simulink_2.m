@@ -22,6 +22,12 @@ cases = {"All-off", testcase1;
          "Roll"   , testcase2;
          "Pitch"  , testcase3};
 
+ios(1) = linio(strcat(model,'/Gain1'),1,'openinput');
+ios(2) = linio(strcat(model, '/Gain'),1,'openoutput');
+omega = testcase2;
+linsys=linearize(model,ios);
+
+%{
 for i = 1:3
     omega = cases{i,2};
     simout = sim(model,'StopTime','3');
@@ -41,3 +47,4 @@ for i = 1:3
     plot(t,ang*180/pi), grid on
     title(['\Theta(t) – ' cases{i,1}]), legend \phi \theta \psi
 end
+%}
