@@ -2,6 +2,10 @@ from collections import defaultdict
 from enum import Enum
 import logging
 from dataclasses import dataclass
+from coordinates import path_to_coordinates
+from coordinates import path_to_matlab_matrix
+
+from mazeplot import export_node_coordinates
 
 
 logging.basicConfig(
@@ -133,7 +137,7 @@ class Graph:
                 parts = line.strip().split(',')
                 
                 if parts[0] == 'E': #Edge
-                    _, from_value, to_value, weight = parts
+                    _, from_value, to_value, weight, *_ = parts
                     
                     #Formatting
                     weight = float(weight.strip())
@@ -437,6 +441,8 @@ class search:
         logging.info(f"Visited Nodes: {len(visited)}")
         logging.info(f"Frontier Size: {len(frontier.items)}")
 
+        return(path)
+
 
 
 if __name__ == '__main__':
@@ -448,22 +454,54 @@ if __name__ == '__main__':
     # graph.vizualize()
     # logging.info('Graph visualization complete.')
 
-    FILEPATH = 'src/examples/figure4_graph.csv'
+    #FILEPATH = 'src/examples/maze_graph.csv'
+    FILEPATH = '/home/rasmus/34757-UAS/maze_graph.csv'
     graph = Graph()
     graph.load(FILEPATH)
     logging.info(f'Graph loaded with {len(graph.nodes)} nodes and {len(graph.edges)} edges.')
 
     graph.vizualize() # Does not work after Python 3.12, distutils are deprecated
     logging.info('Graph visualization complete.')
+
+    walls = [  # same walls as before
+    ((0, 0), (10, 0)),
+    ((0, 0), (0, 10)),
+    ((0, 2), (7, 2)),
+    ((7, 2), (7, 3)),
+    ((0, 3), (3, 3)),
+    ((3, 3), (3, 2)),
+    ((9, 2), (9, 5)),
+    ((9, 5), (3, 5)),
+    ((3, 5), (3, 6)),
+    ((3, 6), (2, 6)),
+    ((0, 4), (1, 4)),
+    ((1, 4), (1, 3)),
+    ((1, 3), (3, 3)),
+    ((5, 5), (5, 4)),
+    ((7, 5), (7, 7)),
+    ((0, 8), (2, 8)),
+    ((2, 8), (2, 9)),
+    ((4, 9), (9, 9)),
+    ((4, 9), (4, 8)),
+    ((4, 8), (5, 8)),
+    ((5, 7), (5, 9)),
+    ((9, 9), (9, 7))
+]
+
+    NODE_COORDINATES = export_node_coordinates(walls, size=(11, 11), output_path='node_coordinates.py')
     
-    search.evaluate_search_algorithm(search.depth_first_search, graph, 's0', 's23')
+    dfs_path = search.evaluate_search_algorithm(search.depth_first_search, graph, 's0', 's16')
+    print("DFS Path as vector:", dfs_path)
+    print("DFS Path as coordinates:", path_to_matlab_matrix(dfs_path,NODE_COORDINATES))
     
-    search.evaluate_search_algorithm(search.breadth_first_search, graph, 's0', 's23')
+    bfs_path = search.evaluate_search_algorithm(search.breadth_first_search, graph, 's0', 's12')
+    print("DFS Path as vector:", bfs_path)
+    print("DFS Path as coordinates:", path_to_matlab_matrix(bfs_path,NODE_COORDINATES))
     
-    search.evaluate_search_algorithm(search.dikstra, graph, 's0', 's23')
+    search.evaluate_search_algorithm(search.dikstra, graph, 's0', 's12')
     
-    search.evaluate_search_algorithm(search.greedy_first_search, graph, 's0', 's23')
+    search.evaluate_search_algorithm(search.greedy_first_search, graph, 's0', 's12')
     
-    search.evaluate_search_algorithm(search.a_star, graph, 's0', 's23')
+    search.evaluate_search_algorithm(search.a_star, graph, 's0', 's12')
 
 
