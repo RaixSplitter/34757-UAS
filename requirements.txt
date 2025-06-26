@@ -1,2 +1,5 @@
+scikit-learn
+rosbags
+pandas
 networkx
 netwulf

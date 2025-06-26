@@ -2,10 +2,17 @@ from collections import defaultdict
 from enum import Enum
 import logging
 from dataclasses import dataclass
+import matplotlib.pyplot as plt
+plt.set_loglevel("info") 
+import numpy as np
 
+
+# Clear the log file at the start of the run
+with open("graph.log", "w"):
+    pass
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(levelname)s - %(message)s",
     handlers=[logging.FileHandler("graph.log"), logging.StreamHandler()],
 )
@@ -35,13 +42,13 @@ class Stack:
         self.items = []
 
     def enqueue(self, item):  # Normally this would be called push
-        logging.debug(f"Pushing {item} onto stack")
+        # logging.debug(f"Pushing {item} onto stack")
         self.items.append(item)
 
     def dequeue(self):  # Normally this would be called pop
         if not self.is_empty():
             item = self.items.pop()
-            logging.debug(f"Popping {item} from stack")
+            # logging.debug(f"Popping {item} from stack")
             return item
         raise IndexError("pop from empty stack")
 
@@ -61,13 +68,13 @@ class Queue:
         self.items = []
 
     def enqueue(self, item):
-        logging.debug(f"Enqueuing {item} to queue")
+        # logging.debug(f"Enqueuing {item} to queue")
         self.items.append(item)
 
     def dequeue(self):
         if not self.is_empty():
             item = self.items.pop(0)
-            logging.debug(f"Dequeuing {item} from queue")
+            # logging.debug(f"Dequeuing {item} from queue")
             return item
         raise IndexError("dequeue from empty queue")
 
@@ -87,7 +94,7 @@ class PriorityQueue:
         self.items = []
 
     def enqueue(self, item, priority):
-        logging.debug(f"Enqueuing {item} with priority {priority}")
+        # logging.debug(f"Enqueuing {item} with priority {priority}")
         self.items.append((item, priority))
         self.items.sort(
             key=lambda x: x[1]
@@ -96,7 +103,7 @@ class PriorityQueue:
     def dequeue(self):
         if not self.is_empty():
             item, priority = self.items.pop(0)
-            logging.debug(f"Dequeuing {item} from queue")
+            # logging.debug(f"Dequeuing {item} from queue")
             return item
         raise IndexError("dequeue from empty queue")
 
@@ -119,15 +126,15 @@ class Graph:
     def add_node(self, key: str | int, value: any = None, pos: tuple = None):
         node = Node(key, value=value)
         self.nodes[key] = node
-        logging.debug(f"Node creation for v: {key}, node: {node}")
+        # logging.debug(f"Node creation for v: {key}, node: {node}")
 
         return node
 
     def add_edge(self, from_key: str | int, to_key: str | int, weight=1):
         from_node, to_node = self.nodes.get(from_key), self.nodes.get(to_key)
-        logging.debug(
-            f"Edge creation from {from_node.key} to {to_node.key} with weight {weight}"
-        )
+        # logging.debug(
+        #     f"Edge creation from {from_node.key} to {to_node.key} with weight {weight}"
+        # )
         edge = Edge(from_node, to_node, weight)
         self.edges[from_node.key].append(edge)
         self.edges[to_node.key].append(
@@ -165,15 +172,14 @@ class Graph:
                     heuristic = float(heuristic.strip())
                     if node_key in self.nodes:  # NODE DOES NOT ADD IF NOT EXISTS
                         self.nodes[node_key].heuristic = heuristic
-                        logging.debug(
-                            f"Setting heuristic for node {node_key} to {heuristic}"
-                        )
+                        # logging.debug(
+                        #     f"Setting heuristic for node {node_key} to {heuristic}"
+                        # )
 
     def vizualize(self, start=None, goal=None, path=None):
         import networkx as nx
 
         # import netwulf as netwulf
-        import matplotlib.pyplot as plt
 
         G = nx.Graph()
         for node in self.nodes.values():
@@ -246,20 +252,16 @@ class Maze2D(Graph):
                     if top_node and top_node.value != "wall" and char != "#":
                         self.add_edge(top_node.key, key)
 
-
             self.N = x
             self.M = y
             logging.info(f"Maze dimensions: {self.N}x{self.M}")
 
             print("All nodes created, now creating edges...")
 
-    def vizualize(self, start = None, goal = None, path = None):
-        import matplotlib.pyplot as plt
+    def vizualize(self, start=None, goal=None, path=None):
         import numpy as np
 
-        
         for key, node in self.nodes.items():
-            
             if start == key:
                 plt.scatter(key[0], -key[1], color="green", s=100, label="Start")
 
@@ -284,8 +286,8 @@ class Maze2D(Graph):
                         color=color,
                         linestyle="dashed",
                     )
-        
-        #Draw path if provided
+
+        # Draw path if provided
         if path:
             for i in range(len(path) - 1):
                 from_key = path[i]
@@ -298,6 +300,256 @@ class Maze2D(Graph):
                     linewidth=2,
                 )
         plt.show()
+
+
+class Maze2DInputMode(Enum):
+    """
+    Enum for input modes of the maze.
+    """
+
+    WALL = 1  # Wall mode
+    SIZE = 2  # Size mode
+    START = 3  # Start position mode
+    GOAL = 4  # Goal position mode
+
+
+class Maze3D(Graph):
+    """
+    Graph Representation of a 3D Maze.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.N = None
+        self.M = None
+        self.H = None
+        self.start: Node = None
+        self.goal: Node = None
+        self.wall_width = 0.15 # Meters
+        self.wall_length = 1.2 # Meters
+        self.wall_height = 0.5 # Meters
+        self.maze_width = 2.4 # Meters
+        self.maze_length = 2.4 # Meters
+
+        self.offset_x = -1.258
+        self.offset_y = -4.749
+        self.offset_z = 0.7
+
+    # @override
+    def load(self, filepath):
+        logging.info(f"Loading 3D maze from {filepath}")
+
+        x_min = 1
+        y_min = 1
+        z_min = 1
+        x_max = 0
+        y_max = 0
+        z_max = 0
+
+        input_mode = Maze2DInputMode.WALL
+        with open(filepath, "r") as f:
+            content = f.readlines()
+
+            for line in content:
+                if "size" in line:
+                    input_mode = Maze2DInputMode.SIZE
+                    continue
+
+                elif line[0] == "%" or not line.strip():
+                    continue
+
+                elif input_mode == Maze2DInputMode.SIZE:
+                    parts = line.strip().split(" ")
+                    self.N, self.M, self.H = map(int, parts)
+                    logging.info(f"3D Maze dimensions: {self.N}x{self.M}x{self.H}")
+                    input_mode = Maze2DInputMode.START
+                    continue
+
+                elif input_mode == Maze2DInputMode.START:
+                    parts = line.strip().split(" ")
+                    start_x, start_y, start_z = map(int, parts)
+                    key = (start_x, start_y, start_z)
+                    self.start = self.add_node(key, value="start")
+                    input_mode = Maze2DInputMode.GOAL
+
+                elif input_mode == Maze2DInputMode.GOAL:
+                    parts = line.strip().split(" ")
+                    goal_x, goal_y, goal_z = map(int, parts)
+                    key = (goal_x, goal_y, goal_z)
+                    self.goal = self.add_node(key, value="goal")
+                    input_mode = Maze2DInputMode.WALL
+                    continue
+
+                elif input_mode == Maze2DInputMode.WALL:
+
+                    x, y, z = map(int, line.strip().split(" "))
+                    key = (x, y, z)
+                    print(f"Adding node {key}, value=wall")
+                    self.add_node(key, value="wall")
+
+        x_max, y_max, z_max = self.N, self.M, self.H
+        for x in range(x_min, x_max + 1):
+            for y in range(y_min, y_max + 1):
+                for z in range(z_min, z_max + 1):
+                    key = (x, y, z)
+                    if key not in self.nodes:
+                        self.add_node(key)
+
+                    # Check neighbors in 3D space
+                    # Only allow movement to 6-connected neighbors (no diagonals)
+                    neighbors = [
+                        (x + 1, y, z),
+                        (x - 1, y, z),
+                        (x, y + 1, z),
+                        (x, y - 1, z),
+                        (x, y, z + 1),
+                        (x, y, z - 1),
+                    ]
+                    for neighbor in neighbors:
+                        if neighbor in self.nodes and neighbor != key:
+                            if (
+                                self.nodes[key].value != "wall"
+                                and self.nodes[neighbor].value != "wall"
+                            ):
+                                self.add_edge(key, neighbor)
+
+    def vizualize(self, start=None, goal=None, path=None):
+        from mpl_toolkits.mplot3d import Axes3D
+        from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+        import numpy as np
+
+        start = self.start.key if start is None else start
+        goal = self.goal.key if goal is None else goal
+
+        fig = plt.figure(constrained_layout=True)
+        ax = fig.add_subplot(111, projection="3d")
+
+        for key, node in self.nodes.items():
+            if start == key:
+                # Draw a 3D ball (sphere) for the start node
+                u, v = np.mgrid[0:2 * np.pi:20j, 0:np.pi:10j]
+                r = 0.4
+                x = key[0] + r * np.cos(u) * np.sin(v)
+                y = key[1] + r * np.sin(u) * np.sin(v)
+                z = key[2] + r * np.cos(v)
+                ax.plot_surface(x, y, z, color="green", alpha=0.5, linewidth=0)
+
+            elif goal == key:
+                # Draw a 3D ball (sphere) for the start node
+                u, v = np.mgrid[0:2 * np.pi:20j, 0:np.pi:10j]
+                r = 0.4
+                x = key[0] + r * np.cos(u) * np.sin(v)
+                y = key[1] + r * np.sin(u) * np.sin(v)
+                z = key[2] + r * np.cos(v)
+                ax.plot_surface(x, y, z, color="purple", alpha=0.5, linewidth=0)
+
+            elif node.value == "wall":
+                # Draw a cube for the wall at (x, y, z)
+
+                x, y, z = key
+                # Half the size for centering
+                d = 1 / 2
+                # 8 vertices of the cube
+                vertices = [
+                    [x - d, y - d, z - d],
+                    [x + d, y - d, z - d],
+                    [x + d, y + d, z - d],
+                    [x - d, y + d, z - d],
+                    [x - d, y - d, z + d],
+                    [x + d, y - d, z + d],
+                    [x + d, y + d, z + d],
+                    [x - d, y + d, z + d]
+                ]
+                # Define the 6 faces using the vertices
+                faces = [
+                    [vertices[0], vertices[1], vertices[2], vertices[3]],  # bottom
+                    [vertices[4], vertices[5], vertices[6], vertices[7]],  # top
+                    [vertices[0], vertices[1], vertices[5], vertices[4]],  # front
+                    [vertices[2], vertices[3], vertices[7], vertices[6]],  # back
+                    [vertices[1], vertices[2], vertices[6], vertices[5]],  # right
+                    [vertices[4], vertices[7], vertices[3], vertices[0]]   # left
+                ]
+                cube = Poly3DCollection(
+                    faces, facecolors="red", edgecolors="k", linewidths=0.5, alpha=1
+                )
+                ax.add_collection3d(cube)
+
+        # for edges in self.edges.values():
+        #     for edge in edges:
+        #         from_key = edge.from_node.key
+        #         to_key = edge.to_node.key
+
+        #         # if edge.from_node.value != "wall" and edge.to_node.value != "wall":
+        #         color = "blue" if edge.weight == 1 else "yellow"
+        #         ax.plot(
+        #             [from_key[0], to_key[0]],
+        #             [from_key[1], to_key[1]],
+        #             [from_key[2], to_key[2]],
+        #             color=color,
+        #             linestyle="dashed",
+        #         )
+
+        # Draw path if provided
+        if path:
+            for i in range(len(path) - 1):
+                from_key = path[i]
+                to_key = path[i + 1]
+                ax.plot(
+                    [from_key[0], to_key[0]],
+                    [from_key[1], to_key[1]],
+                    [from_key[2], to_key[2]],
+                    color="blue",
+                    linewidth=3 if path else 2,
+                )
+
+        ax.set_xlabel("X-axis")
+        ax.set_ylabel("Y-axis")
+        ax.set_zlabel("Z-axis")
+        ax.set_xlim(0, self.N+1)
+        ax.set_ylim(0, self.M+1)
+        ax.set_zlim(0, self.H+1)
+        ax.axis("equal")
+
+        ax.set_title("3D Maze Visualization")
+        plt.show()
+
+    def translate_coords(self, coord : tuple[float, float, float], offset_x : float = -1.258, offset_y : float = -4.749, offset_z : float = 0.7) -> tuple[float, float, float]:
+        assert isinstance(offset_x, (int, float)), "offset_x must be a number"
+        assert isinstance(offset_y, (int, float)), "offset_y must be a number"
+        assert isinstance(offset_z, (int, float)), "offset_z must be a number"
+
+        x, y, z = coord #unpack coordinates
+        x, y, z = x-1, y-1, z-1 #adjust to 0-indexed coordinates
+        n_walls_y = (self.M // 2) # Number of walls in y direction
+        x_len = self.maze_length / self.N # Length of each cell in x direction
+
+        #Y is a bit tricky, since it alternates between walls of 15 cm and cells of 1.2 M / 2 - wall_width
+        
+        width_walls = (self.wall_width * n_walls_y)
+
+        # Maze width - width of walls divided by number of cells aka. non-wall cells
+        y_len = (self.maze_width - width_walls) / (self.M - n_walls_y)
+
+        # Z is simply the height of the wall
+        z_len = self.wall_height
+
+        #Center offsets are half the width, length and height of a cell
+        center_offset_x = x_len / 2
+        center_offset_y = y_len / 2
+        center_offset_z = z_len / 2
+
+        # Apply the offsets to the coordinates
+        x = (x * x_len) + offset_x + center_offset_x
+        y = (np.ceil(y/2) * y_len) + (y//2 * self.wall_width) + offset_y + center_offset_y
+        z = (z * z_len) + offset_z + center_offset_z
+
+        return (x, y, z)
+
+
+    def translate_path(self, path, offset_x : float = 0, offset_y : float = 0, offset_z : float = 0):
+        t_path = [self.translate_coords(coord, offset_x, offset_y, offset_z) for coord in path]
+        return t_path
+        
 
 
 class search:
@@ -361,9 +613,11 @@ class search:
                         if edge.from_node.key == current_key
                         else edge.from_node.key
                     )  # Get the next node to explore
-                    if next_node not in visited:
+                    if next_node not in visited and next_node not in stack.items:
                         parent_map[next_node] = current_key
                         stack.enqueue(next_node)
+
+                logging.debug(f"Current Node: {current_key}, stack: {stack.items}")
         return False, [], visited, stack  # Path not found
 
     @staticmethod
@@ -511,7 +765,10 @@ class search:
                         if edge.from_node.key == current_key
                         else edge.from_node.key
                     )
-                    if next_node not in visited:
+                    if (
+                        next_node not in visited
+                        and next_node not in priority_queue.items
+                    ):
                         parent_map[next_node] = current_key
                         priority_queue.enqueue(
                             next_node, graph.nodes[next_node].heuristic
@@ -579,7 +836,11 @@ class search:
 
     @staticmethod
     def evaluate_search_algorithm(
-        algorithm, graph: Graph, start_key: str | int, goal_key: str | int, viz : bool = False
+        algorithm,
+        graph: Graph,
+        start_key: str | int,
+        goal_key: str | int,
+        viz: bool = False,
     ):
         """
         Evaluates a search algorithm on the graph. And logs the formattet results.
@@ -599,12 +860,16 @@ class search:
         logging.info(f"Search Algorithm: {algorithm.__name__}")
         logging.info(f"Start Node: {start_key}, Goal Node: {goal_key}")
         logging.info(f"Goal Found: {found}")
-        logging.info(f"Path: {' -> '.join(map(str, path)) if path else 'No path found'}")
+        logging.info(
+            f"Path: {' -> '.join(map(str, path)) if path else 'No path found'}"
+        )
         logging.info(f"Visited Nodes: {len(visited)}")
         logging.info(f"Frontier Size: {len(frontier.items)}")
 
         if viz:
-            graph.vizualize(start=start_key, goal=goal_key, path=path)
+            logging.info("Visualizing the graph...")
+            graph.vizualize(start_key, goal_key, path)
+            logging.info("Graph visualization complete.")
 
 
 if __name__ == "__main__":
@@ -612,6 +877,10 @@ if __name__ == "__main__":
     # graph = Graph()
     # graph.load(FILEPATH)
     # logging.info(f'Graph loaded with {len(graph.nodes)} nodes and {len(graph.edges)} edges.')
+
+    # search.evaluate_search_algorithm(search.depth_first_search, graph, 's0', 's23')
+
+    # search.evaluate_search_algorithm(search.breadth_first_search, graph, 's0', 's23')
 
     # graph.vizualize()
     # logging.info('Graph visualization complete.')
@@ -634,23 +903,39 @@ if __name__ == "__main__":
 
     # search.evaluate_search_algorithm(search.a_star, graph, 's0', 's23')
 
-    FILEPATH = "src/examples/maze2d_v2.txt"
-    maze = Maze2D()
+    # FILEPATH = "src/examples/maze2d_v2.txt"
+    # maze = Maze2D()
+    # maze.load(FILEPATH)
+    # logging.info(
+    #     f"Maze loaded with {len(maze.nodes)} nodes and {len(maze.edges)} edges."
+    # )
+
+    # start, goal = (1, 10), (1, 6)
+
+    # search.evaluate_search_algorithm(search.depth_first_search, maze, start, goal, viz=True)
+
+    # search.evaluate_search_algorithm(search.breadth_first_search, maze, start, goal, viz=True)
+
+    # search.evaluate_search_algorithm(search.dikstra, maze, start, goal, viz=True)
+
+    # search.evaluate_search_algorithm(search.greedy_first_search, maze, start, goal, viz=True)
+
+    # search.evaluate_search_algorithm(search.a_star, maze, start, goal, viz=True)
+
+    FILEPATH = "data/wall.txt"
+
+    maze = Maze3D()
     maze.load(FILEPATH)
     logging.info(
-        f"Maze loaded with {len(maze.nodes)} nodes and {len(maze.edges)} edges."
+        f"3D Maze loaded with {len(maze.nodes)} nodes and {len(maze.edges)} edges."
     )
 
-    start, goal = (1, 10), (1, 6)
+    search.evaluate_search_algorithm(
+        search.depth_first_search, maze, maze.start.key, maze.goal.key, viz=True
+    )
 
-    search.evaluate_search_algorithm(search.depth_first_search, maze, start, goal, viz=True)
+    maze.translate_coords((1,1,1))
 
-    search.evaluate_search_algorithm(search.breadth_first_search, maze, start, goal, viz=True)
+    print("Done")
 
-    search.evaluate_search_algorithm(search.dikstra, maze, start, goal, viz=True)
-
-    search.evaluate_search_algorithm(search.greedy_first_search, maze, start, goal, viz=True)
-
-    search.evaluate_search_algorithm(search.a_star, maze, start, goal, viz=True)
-
-
+    # maze.vizualize()
